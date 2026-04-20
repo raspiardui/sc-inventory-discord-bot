@@ -1,0 +1,31 @@
+# Archivos de entorno y secretos
+.env
+.env.*
+*.pem
+*.key
+
+# Datos de MongoDB (local)
+data/
+./data/mongo/
+
+# Backups y logs
+*.bak
+*.log
+*.tar.gz
+backup_*
+
+# Node modules y build
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Editor
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Cruz del Sur</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: radial-gradient(circle at 10% 20%, #020024, #090979, #00141e);
+            color: #f0f0f0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            background: linear-gradient(135deg, #FFD966, #FF8C42);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 20px;
+        }
+        .login-card, .dashboard {
+            background: rgba(20, 25, 45, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 30px;
+            margin: 20px auto;
+            max-width: 500px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .dashboard {
+            max-width: 100%;
+            display: none;
+        }
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 40px;
+            border: none;
+            font-size: 1rem;
+        }
+        input {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            padding-left: 20px;
+        }
+        button {
+            background: linear-gradient(95deg, #FF8C42, #FF3B3F);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.02);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        th {
+            background: rgba(0,0,0,0.5);
+        }
+        .guild-row {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .guild-row:hover {
+            background: rgba(255,140,66,0.2);
+        }
+        .item-card {
+            background: rgba(0,0,0,0.4);
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .item-actions button {
+            width: auto;
+            margin-left: 10px;
+            padding: 6px 12px;
+        }
+        .back-btn {
+            background: #334;
+            margin-bottom: 20px;
+            width: auto;
+            display: inline-block;
+        }
+        .error {
+            color: #ff8888;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .success {
+            color: #88ff88;
+        }
+        .loader {
+            text-align: center;
+            padding: 20px;
+        }
+        .image-upload {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 16px;
+        }
+        .image-upload h3 {
+            margin-bottom: 10px;
+        }
+        .image-preview {
+            max-width: 200px;
+            max-height: 100px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🚀 Panel de Administración - Cruz del Sur</h1>
+    <div id="loginCard" class="login-card">
+        <h2>Acceso restringido</h2>
+        <input type="text" id="username" placeholder="Usuario" autocomplete="off">
+        <input type="password" id="password" placeholder="Contraseña">
+        <button onclick="login()">Ingresar</button>
+        <div id="loginError" class="error"></div>
+    </div>
+
+    <div id="dashboard" class="dashboard">
+        <button class="back-btn" onclick="showGuildList()">← Volver a servidores</button>
+        <div id="adminContent">
+            <!-- Aquí se mostrará la lista de guilds o el inventario -->
+        </div>
+    </div>
+</div>
+
+<script>
+    let authToken = null;
+    let currentGuildId = null;
+
+    async function login() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        if (!username || !password) {
+            document.getElementById('loginError').innerText = 'Ingrese usuario y contraseña';
+            return;
+        }
+        authToken = btoa(`${username}:${password}`);
+        try {
+            const res = await fetch('/admin/guilds', {
+                headers: { 'Authorization': `Basic ${authToken}` }
+            });
+            if (res.ok) {
+                document.getElementById('loginCard').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                showGuildList();
+            } else {
+                document.getElementById('loginError').innerText = 'Credenciales incorrectas';
+                authToken = null;
+            }
+        } catch (err) {
+            document.getElementById('loginError').innerText = 'Error de conexión';
+            authToken = null;
+        }
+    }
+
+    async function fetchWithAuth(url, options = {}) {
+        const res = await fetch(url, {
+            ...options,
+            headers: {
+                ...options.headers,
+                'Authorization': `Basic ${authToken}`
+            }
+        });
+        if (res.status === 401) {
+            alert('Sesión expirada. Vuelva a iniciar sesión.');
+            location.reload();
+            throw new Error('Unauthorized');
+        }
+        return res;
+    }
+
+    async function showGuildList() {
+        const content = document.getElementById('adminContent');
+        content.innerHTML = '<div class="loader">Cargando servidores...</div>';
+        try {
+            const res = await fetchWithAuth('/admin/guilds');
+            const guilds = await res.json();
+            if (guilds.length === 0) {
+                content.innerHTML = '<p>No hay servidores registrados todavía.</p>';
+                return;
+            }
+            let html = '<h2>📋 Servidores con inventario</h2></td><th>ID del servidor</th><th>Items</th><th>Total SCU</th><th>Última actualización</th><th>Acciones</th></tr>';
+            guilds.forEach(g => {
+                html += `<tr class="guild-row">
+                            <td>${g._id}</td>
+                            <td>${g.total_items}</td>
+                            <td>${g.total_scu}</td>
+                            <td>${new Date(g.last_update).toLocaleString()}</td>
+                            <td><button onclick="event.stopPropagation(); showImages('${g._id}')">🖼️ Imágenes</button>
+                              <button onclick="event.stopPropagation(); showInventory('${g._id}')">📦 Inventario</button></td>
+                          </tr>`;
+            });
+            html += '</table>';
+            content.innerHTML = html;
+        } catch (err) {
+            content.innerHTML = '<div class="error">Error cargando servidores</div>';
+        }
+    }
+
+    async function showImages(guildId) {
+        currentGuildId = guildId;
+        const content = document.getElementById('adminContent');
+        content.innerHTML = `<div class="loader">Cargando imágenes...</div>
+                             <button class="back-btn" onclick="showGuildList()">← Volver</button>`;
+        try {
+            const res = await fetchWithAuth(`/admin/images/${guildId}`);
+            const images = await res.json();
+            let html = `<h2>🖼️ Personalización del servidor ${guildId}</h2>
+                        <div class="image-upload">
+                            <h3>Fondo de pantalla (Star Citizen)</h3>
+                            ${images.background ? `<img src="${images.background}" class="image-preview"><br><button onclick="deleteImage('${guildId}', 'background')">🗑️ Eliminar fondo</button>` : ''}
+                            <form id="formBackground" onsubmit="uploadImage(event, '${guildId}', 'background')">
+                                <input type="file" accept="image/*" id="backgroundFile" required>
+                                <button type="submit">Subir fondo</button>
+                            </form>
+                        </div>
+                        <div class="image-upload">
+                            <h3>Logo de la organización</h3>
+                            ${images.logo ? `<img src="${images.logo}" class="image-preview"><br><button onclick="deleteImage('${guildId}', 'logo')">🗑️ Eliminar logo</button>` : ''}
+                            <form id="formLogo" onsubmit="uploadImage(event, '${guildId}', 'logo')">
+                                <input type="file" accept="image/*" id="logoFile" required>
+                                <button type="submit">Subir logo</button>
+                            </form>
+                        </div>
+                        <button class="back-btn" onclick="showGuildList()">← Volver a servidores</button>`;
+            content.innerHTML = html;
+        } catch (err) {
+            content.innerHTML = `<div class="error">Error cargando imágenes</div><button class="back-btn" onclick="showGuildList()">← Volver</button>`;
+        }
+    }
+
+    async function uploadImage(event, guildId, imageType) {
+        event.preventDefault();
+        const fileInput = document.getElementById(`${imageType}File`);
+        const file = fileInput.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('image_type', imageType);
+        formData.append('file', file);
+        try {
+            const res = await fetchWithAuth(`/admin/upload/${guildId}`, {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                alert('Imagen subida correctamente');
+                showImages(guildId);
+            } else {
+                alert('Error al subir imagen');
+            }
+        } catch (err) {
+            alert('Error de conexión');
+        }
+    }
+
+    async function deleteImage(guildId, imageType) {
+        if (!confirm(`¿Eliminar la imagen ${imageType}?`)) return;
+        try {
+            const res = await fetchWithAuth(`/admin/images/${guildId}/${imageType}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                alert('Imagen eliminada');
+                showImages(guildId);
+            } else {
+                alert('Error al eliminar');
+            }
+        } catch (err) {
+            alert('Error de conexión');
+        }
+    }
+
+    async function showInventory(guildId) {
+        const content = document.getElementById('adminContent');
+        content.innerHTML = '<div class="loader">Cargando inventario...</div>';
+        try {
+            const res = await fetchWithAuth(`/admin/inventory/${guildId}`);
+            const items = await res.json();
+            if (items.length === 0) {
+                content.innerHTML = `<p>No hay items en este servidor.</p><button class="back-btn" onclick="showGuildList()">← Volver</button>`;
+                return;
+            }
+            let html = `<h2>📦 Inventario del servidor: ${guildId}</h2>
+                        <button class="back-btn" onclick="showGuildList()">← Volver a servidores</button>
+                        <div id="itemsList">`;
+            items.forEach(item => {
+                html += `
+                    <div class="item-card" data-item="${item.item_name}" data-guild="${guildId}">
+                        <div>
+                            <strong>${item.item_name}</strong> - ${item.category}<br>
+                            📦 Cantidad: <span id="cant-${item.item_name.replace(/ /g, '_')}">${item.cantidad}</span> SCU<br>
+                            ✨ Calidad: <span id="cal-${item.item_name.replace(/ /g, '_')}">${item.calidad}</span>
+                        </div>
+                        <div class="item-actions">
+                            <input type="number" id="newCant-${item.item_name.replace(/ /g, '_')}" placeholder="Nueva cantidad" step="0.1">
+                            <input type="number" id="newCal-${item.item_name.replace(/ /g, '_')}" placeholder="Nueva calidad" min="1" max="1000">
+                            <button onclick="updateItem('${guildId}', '${item.item_name}')">✏️ Actualizar</button>
+                            <button onclick="deleteItem('${guildId}', '${item.item_name}')">🗑️ Eliminar</button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div><button class="back-btn" onclick="showGuildList()">← Volver a servidores</button>`;
+            content.innerHTML = html;
+        } catch (err) {
+            content.innerHTML = `<div class="error">Error cargando inventario</div><button class="back-btn" onclick="showGuildList()">← Volver</button>`;
+        }
+    }
+
+    async function updateItem(guildId, itemName) {
+        const safeKey = itemName.replace(/ /g, '_');
+        const newCantidad = document.getElementById(`newCant-${safeKey}`).value;
+        const newCalidad = document.getElementById(`newCal-${safeKey}`).value;
+        const params = new URLSearchParams();
+        if (newCantidad) params.append('cantidad', parseFloat(newCantidad));
+        if (newCalidad) params.append('calidad', parseInt(newCalidad));
+        if (!params.toString()) {
+            alert('Introduce al menos un valor a modificar');
+            return;
+        }
+        try {
+            const res = await fetchWithAuth(`/admin/inventory/${guildId}/${encodeURIComponent(itemName)}?${params.toString()}`, {
+                method: 'PUT'
+            });
+            if (res.ok) {
+                if (newCantidad) document.getElementById(`cant-${safeKey}`).innerText = parseFloat(newCantidad).toFixed(2);
+                if (newCalidad) document.getElementById(`cal-${safeKey}`).innerText = newCalidad;
+                document.getElementById(`newCant-${safeKey}`).value = '';
+                document.getElementById(`newCal-${safeKey}`).value = '';
+                alert('Item actualizado');
+            } else {
+                alert('Error al actualizar');
+            }
+        } catch (err) {
+            alert('Error de conexión');
+        }
+    }
+
+    async function deleteItem(guildId, itemName) {
+        if (!confirm(`¿Eliminar permanentemente el item "${itemName}"?`)) return;
+        try {
+            const res = await fetchWithAuth(`/admin/inventory/${guildId}/${encodeURIComponent(itemName)}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                alert('Item eliminado');
+                showInventory(guildId);
+            } else {
+                alert('Error al eliminar');
+            }
+        } catch (err) {
+            alert('Error de conexión');
+        }
+    }
+</script>
+</body>
+</html>

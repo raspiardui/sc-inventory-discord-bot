@@ -1,0 +1,54 @@
+services:
+  mongodb:
+    image: mongo:6
+    container_name: sc-inventory-mongo
+    restart: unless-stopped
+    command: --wiredTigerCacheSizeGB 0.5
+    mem_limit: 768m
+    volumes:
+      - ./data/mongo:/data/db
+    networks:
+      - sc-inventory-net
+
+  backend:
+    build: ./backend
+    container_name: sc-inventory-backend
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+    depends_on:
+      - mongodb
+    networks:
+      - sc-inventory-net
+
+  frontend:
+    build: ./frontend
+    container_name: sc-inventory-frontend
+    restart: unless-stopped
+    ports:
+      - "5174:5173"
+    depends_on:
+      - backend
+    networks:
+      - sc-inventory-net
+
+  discord-bot:
+    build: ./discord-bot
+    container_name: sc-inventory-bot
+    restart: unless-stopped
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - API_BASE_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - sc-inventory-net
+
+networks:
+  sc-inventory-net:
+    driver: bridge
