@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 function App() {
   const [guildId, setGuildId] = useState(null);
-  const [serverName, setServerName] = useState(null);
+  const [serverInfo, setServerInfo] = useState({ name: null, icon: null });
   const [inventory, setInventory] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [search, setSearch] = useState('');
@@ -36,8 +36,8 @@ function App() {
     setGuildId(gid);
     fetch(`/guild/${gid}`)
       .then(res => res.ok ? res.json() : Promise.reject())
-      .then(data => setServerName(data.name))
-      .catch(() => setServerName('Servidor'));
+      .then(data => setServerInfo({ name: data.name, icon: data.icon }))
+      .catch(() => setServerInfo({ name: 'Servidor', icon: null }));
   }, []);
 
   useEffect(() => {
@@ -54,7 +54,6 @@ function App() {
       const res = await fetch(`/inventory?guild_id=${guildId}`);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       let data = await res.json();
-      // Agrupar por item_name (sumar cantidades) para la vista principal
       const grouped = {};
       data.forEach(item => {
         if (!grouped[item.item_name]) {
@@ -222,7 +221,12 @@ function App() {
   return (
     <div style={styles.container}>
       <div style={styles.hero}>
-        <h1 style={styles.title}>🚀 Inventario de {serverName || '...'}</h1>
+        <img 
+          src={serverInfo.icon || "https://cdn.discordapp.com/embed/avatars/0.png"} 
+          alt="Logo del servidor" 
+          style={styles.serverIcon} 
+        />
+        <h1 style={styles.title}>🚀 Inventario de {serverInfo.name || '...'}</h1>
         <p style={styles.subtitle}>Recursos minerales y refinados de la organización</p>
         <p style={styles.guildId}>🔰 Servidor ID: {guildId}</p>
       </div>
@@ -270,7 +274,6 @@ function App() {
         ))}
       </div>
 
-      {/* Modal de historial (sin cambios) */}
       {showModal && selectedItem && (
         <div style={styles.modalOverlay} onClick={() => setShowModal(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -306,7 +309,6 @@ function App() {
         </div>
       )}
 
-      {/* Modal de desglose detallado con tarjetas y barras de calidad */}
       {showBreakdownModal && (
         <div style={styles.modalOverlay} onClick={() => setShowBreakdownModal(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -360,6 +362,13 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center'
+  },
+  serverIcon: {
+    width: '150px',
+    height: '150px',
+    borderRadius: '50%',
+    marginBottom: '10px',
+    border: '3px solid #FFD966'
   },
   title: {
     fontSize: '2.8rem',

@@ -21,6 +21,7 @@ ALL_ITEMS = [
     "Refined Copper", "Refined Gold", "Refined Hephaestanite", "Refined Iron",
     "Refined Laranite", "Refined Quantanium", "Refined Silver", "Refined Taranite",
     "Refined Titanium", "Refined Tungsten"
+    "Aslarite", "Beradom", "Carinite", "Ouratite", "Riccite", "Sadaryx",
 ]
 
 LOCATIONS = [

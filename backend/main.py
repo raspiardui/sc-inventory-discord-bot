@@ -40,6 +40,7 @@ ITEMS_DB = {
     "Carbon":"Gas", "Fluorine":"Gas", "Hydrogen":"Gas", "Iodine":"Gas", "Nitrogen":"Gas",
     "Oxygen":"Gas", "Sulfur":"Gas",
     "Valakar Eye":"Trofeo", "Valakar Tongue":"Trofeo",
+    "Aslarite":"Mineral", "Beradom":"Mineral", "Carinite":"Mineral", "Ouratite":"Mineral", "Riccite":"Mineral", "Sadaryx":"Mineral",
 }
 
 def get_category(item_name):
@@ -444,3 +445,11 @@ async def get_breakdown_detailed(item_name: str, guild_id: str = Query(...)):
     # Ordenar por calidad descendente
     result.sort(key=lambda x: x["calidad"], reverse=True)
     return result
+
+# Nuevos minerales sin datos de firma aún (solo para inventario)
+MINERAL_DATA["Aslarite"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
+MINERAL_DATA["Beradom"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
+MINERAL_DATA["Carinite"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
+MINERAL_DATA["Ouratite"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
+MINERAL_DATA["Riccite"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
+MINERAL_DATA["Sadaryx"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
