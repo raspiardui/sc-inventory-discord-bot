@@ -312,3 +312,13 @@ async def estimar(interaction: discord.Interaction, mineral: str, firma_pico: in
     await interaction.followup.send(embed=embed)
 
 bot.run(DISCORD_TOKEN)
+
+@bot.tree.command(name="orgweb", description="Obtén el enlace web del inventario")
+async def orgweb(interaction: discord.Interaction):
+    if interaction.guild_id is None:
+        await interaction.response.send_message("Este comando solo funciona en servidores.", ephemeral=True)
+        return
+    web_url = f"https://invcruzsur.csroy.es/?guild={interaction.guild_id}"
+    embed = discord.Embed(title="🌐 Web del Inventario", description=f"Inventario de **{interaction.guild.name}**", color=0x44aaff)
+    embed.add_field(name="🔗 Enlace", value=f"[Haz clic aquí]({web_url})", inline=False)
+    await interaction.response.send_message(embed=embed)

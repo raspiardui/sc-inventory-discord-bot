@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 import secrets
 import httpx
+from math import inf
 
 app = FastAPI()
 app.add_middleware(
@@ -27,11 +28,14 @@ db = client.sc_inventory
 inventory_collection = db.inventory
 
 ITEMS_DB = {
-    "Agricium":"Mineral", "Aluminum":"Mineral", "Baryl":"Mineral", "Bexalite":"Mineral",
-    "Borase":"Mineral", "Copper":"Mineral", "Corundum":"Mineral", "Diamond":"Mineral",
-    "Gold":"Mineral", "Hephaestanite":"Mineral", "Iron":"Mineral", "Laranite":"Mineral",
-    "Magnesite":"Mineral", "Platinum":"Mineral", "Quantanium":"Mineral", "Quartz":"Mineral",
-    "Silver":"Mineral", "Taranite":"Mineral", "Titanium":"Mineral", "Tungsten":"Mineral",
+    "Agricium":"Mineral", "Aluminum":"Mineral", "Aslariete":"Mineral", "Beradom":"Mineral",
+    "Beryl":"Mineral", "Bexalite":"Mineral", "Borase":"Mineral", "Carinite":"Mineral",
+    "Copper":"Mineral", "Corundum":"Mineral", "Diamond":"Mineral", "Gold":"Mineral",
+    "Hephaestanite":"Mineral", "Ice":"Mineral", "Iron":"Mineral", "Laranite":"Mineral",
+    "Lindinium":"Mineral", "Ouratite":"Mineral", "Quantanium":"Mineral", "Quartz":"Mineral",
+    "Riccite":"Mineral", "Sadaryx":"Mineral", "Savrilium":"Mineral", "Silicon":"Mineral",
+    "Stileron":"Mineral", "Taranite":"Mineral", "Tin":"Mineral", "Titanium":"Mineral",
+    "Torite":"Mineral", "Tungsten":"Mineral", "Debris":"Escombro",
     "Aphorite":"Gema", "Dolivine":"Gema", "Hadanite":"Gema", "Janalite":"Gema",
     "RMC":"Salvage", "Recycled Material Composite":"Salvage", "Construction Materials":"Salvage",
     "Circuit Boards":"Componente", "Power Cells":"Componente", "Compboards":"Componente",
@@ -40,7 +44,6 @@ ITEMS_DB = {
     "Carbon":"Gas", "Fluorine":"Gas", "Hydrogen":"Gas", "Iodine":"Gas", "Nitrogen":"Gas",
     "Oxygen":"Gas", "Sulfur":"Gas",
     "Valakar Eye":"Trofeo", "Valakar Tongue":"Trofeo",
-    "Aslarite":"Mineral", "Beradom":"Mineral", "Carinite":"Mineral", "Ouratite":"Mineral", "Riccite":"Mineral", "Sadaryx":"Mineral",
 }
 
 def get_category(item_name):
@@ -202,7 +205,39 @@ async def admin_update_item(guild_id: str, item_name: str, cantidad: float = Non
         raise HTTPException(404, "Item no encontrado")
     return {"success": True}
 
-# ========== CHULETA DE MINERALES ==========
+# ========== CHULETA DE MINERALES (con firmas por tamaño) ==========
+MINERAL_DATA = {
+    "Agricium": {"tier": 2, "firma_base": 3885, "firmas": [3885, 7770, 11655, 15440, 19245], "nota": "Componentes de precisión"},
+    "Aluminum": {"tier": 3, "firma_base": 4285, "firmas": [4285, 8570, 12855, 17140, 21425], "nota": "Piezas ligeras"},
+    "Aslariete": {"tier": 2, "firma_base": 3840, "firmas": [3840, 7680, 11520, 15360, 19200], "nota": ""},
+    "Beradom": {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"},
+    "Beryl": {"tier": 3, "firma_base": 3540, "firmas": [3540, 7080, 10620, 14160, 17880], "nota": ""},
+    "Bexalite": {"tier": 1, "firma_base": 3600, "firmas": [3600, 7200, 10800, 14400, 18000], "nota": "Grupos grandes, firma muy alta"},
+    "Borase": {"tier": 2, "firma_base": 3570, "firmas": [3570, 7140, 10710, 14280, 17970], "nota": ""},
+    "Carinite": {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"},
+    "Copper": {"tier": 3, "firma_base": 4240, "firmas": [4240, 8480, 12720, 16960, 21120], "nota": "Cables y electrónica básica"},
+    "Corundum": {"tier": 3, "firma_base": 4225, "firmas": [4225, 8450, 12675, 16900, 21075], "nota": ""},
+    "Gold": {"tier": 1, "firma_base": 3585, "firmas": [3585, 7170, 10755, 14340, 18135], "nota": "Múltiplo común: 3600 o 3585"},
+    "Hephaestanite": {"tier": 2, "firma_base": 4180, "firmas": [4180, 8360, 12540, 16720, 20920], "nota": "Refuerzos de casco"},
+    "Ice": {"tier": 3, "firma_base": 4300, "firmas": [4300, 8600, 12900, 17200, 21600], "nota": ""},
+    "Iron": {"tier": 3, "firma_base": 4270, "firmas": [4270, 8540, 12810, 17080, 21530], "nota": "El estándar de la galaxia"},
+    "Laranite": {"tier": 1, "firma_base": 3825, "firmas": [3825, 7650, 11475, 15300, 19350], "nota": "Muy buscado para electrónica"},
+    "Lindinium": {"tier": 2, "firma_base": 3400, "firmas": [3400, 6800, 10200, 13600, 17400], "nota": ""},
+    "Ouratite": {"tier": 2, "firma_base": 3370, "firmas": [3370, 6740, 10110, 13480, 16850], "nota": ""},
+    "Quantanium": {"tier": 1, "firma_base": 3170, "firmas": [3170, 6340, 9510, 12680, 16380], "nota": "Inestable, fluctúa"},
+    "Quartz": {"tier": 3, "firma_base": 4210, "firmas": [4210, 8420, 12630, 16840, 21730], "nota": ""},
+    "Riccite": {"tier": 2, "firma_base": 3385, "firmas": [3385, 6770, 10155, 13540, 17540], "nota": ""},
+    "Sadaryx": {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"},
+    "Savrilium": {"tier": 2, "firma_base": 3200, "firmas": [3200, 6400, 9600, 12800, 16560], "nota": ""},
+    "Silicon": {"tier": 3, "firma_base": 4255, "firmas": [4255, 8510, 12765, 17020, 21865], "nota": ""},
+    "Stileron": {"tier": 2, "firma_base": 3185, "firmas": [3185, 6370, 9555, 12740, 16440], "nota": ""},
+    "Taranite": {"tier": 1, "firma_base": 3555, "firmas": [3555, 7110, 10665, 14220, 18390], "nota": "Múltiplo de 3: 10125"},
+    "Tin": {"tier": 3, "firma_base": 4195, "firmas": [4195, 8390, 12585, 16780, 21585], "nota": ""},
+    "Titanium": {"tier": 2, "firma_base": 3855, "firmas": [3855, 7710, 11565, 15420, 19815], "nota": "Fundamental para blindajes"},
+    "Torite": {"tier": 1, "firma_base": 3900, "firmas": [3900, 7800, 11700, 15600, 20100], "nota": ""},
+    "Tungsten": {"tier": 2, "firma_base": 3870, "firmas": [3870, 7740, 11610, 15480, 19980], "nota": ""},
+    "Debris": {"tier": "Escombro", "firma_base": 2000, "firmas": [2000, 4000, 6000, 8000, 10000], "nota": "Restos de roca sin valor"},
+}
 
 @app.get("/minerales")
 async def get_minerales():
@@ -217,111 +252,6 @@ async def get_mineral(nombre: str):
 
 @app.get("/minerales/por_firma/{firma}")
 async def buscar_mineral_por_firma(firma: int):
-    from math import inf
-    mejor_coincidencia = None
-    menor_diferencia = inf
-    resultados = []
-    for nombre, datos in MINERAL_DATA.items():
-        dif = abs(datos["firma"] - firma)
-        if dif < menor_diferencia:
-            menor_diferencia = dif
-            mejor_coincidencia = (nombre, datos)
-        if dif <= datos["firma"] * 0.05:
-            resultados.append((nombre, datos, dif))
-    if not resultados and mejor_coincidencia:
-        resultados.append((mejor_coincidencia[0], mejor_coincidencia[1], menor_diferencia))
-    resultados.sort(key=lambda x: x[2])
-    return [{"nombre": r[0], "firma_tipica": r[1]["firma"], "tier": r[1]["tier"], "nota": r[1].get("nota", "")} for r in resultados[:3]]
-
-# ========== OBTENER NOMBRE DEL SERVIDOR ==========
-@app.get("/guild/{guild_id}")
-async def get_guild_info(guild_id: str):
-    DISCORD_TOKEN_BACKEND = os.getenv("DISCORD_TOKEN")
-    if not DISCORD_TOKEN_BACKEND:
-        raise HTTPException(500, "Token de Discord no configurado en el backend")
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        resp = await client.get(
-            f"https://discord.com/api/v10/guilds/{guild_id}",
-            headers={"Authorization": f"Bot {DISCORD_TOKEN_BACKEND}"}
-        )
-    if resp.status_code != 200:
-        raise HTTPException(404, "Servidor no encontrado o el bot no está en él")
-    data = resp.json()
-    icon_hash = data.get("icon")
-    icon_url = f"https://cdn.discordapp.com/icons/{guild_id}/{icon_hash}.png" if icon_hash else None
-    return {"name": data.get("name", "Servidor desconocido"), "icon": icon_url}
-
-@app.get("/inventory/breakdown/{item_name}")
-async def get_item_breakdown(item_name: str, guild_id: str = Query(...)):
-    """
-    Calcula el stock actual del item desglosado por calidad y ubicación,
-    a partir del historial de movimientos (sin depender de documentos agregados).
-    """
-    # Obtener todos los documentos de este item en este guild (de la nueva colección inventario_v2)
-    # Si usas la colección antigua (inventory), ajusta.
-    items = await inventory_collection.find({
-        "guild_id": guild_id,
-        "item_name": item_name
-    }).to_list(1000)
-    
-    # Si no hay documentos, intentamos calcular desde el historial global? 
-    # Pero como ya tenemos los documentos individuales por calidad/ubicación, los usamos directamente.
-    # (Nota: en la estructura actual, cada documento ya es una combinación única calidad+ubicación, 
-    # pero el usuario no quiere verlos todos en la vista principal, solo en el desglose.)
-    breakdown = []
-    for doc in items:
-        breakdown.append({
-            "calidad": doc.get("calidad"),
-            "location": doc.get("location", "Sin ubicación"),
-            "cantidad": doc.get("cantidad", 0),
-            "last_updated": doc.get("last_updated")
-        })
-    # Ordenar por calidad descendente
-    breakdown.sort(key=lambda x: x["calidad"], reverse=True)
-    return breakdown
-
-@app.get("/minerales/por_firma/{firma}")
-async def buscar_mineral_por_firma(firma: int):
-    from math import inf
-    mejores = []
-    for nombre, datos in MINERAL_DATA.items():
-        firmas = datos.get("firmas", [])
-        for idx, valor in enumerate(firmas):
-            dif = abs(valor - firma)
-            if dif <= 100:  # margen de 100 unidades
-                mejores.append((nombre, datos, idx+1, dif, valor))
-    if not mejores:
-        # Si no hay cerca, devolver el más cercano de cualquier tamaño
-        mejor = None
-        mejor_dif = inf
-        mejor_tam = None
-        mejor_valor = None
-        for nombre, datos in MINERAL_DATA.items():
-            for idx, valor in enumerate(datos.get("firmas", [])):
-                dif = abs(valor - firma)
-                if dif < mejor_dif:
-                    mejor_dif = dif
-                    mejor = (nombre, datos, idx+1, dif, valor)
-        if mejor:
-            mejores.append(mejor)
-    # Ordenar por diferencia
-    mejores.sort(key=lambda x: x[3])
-    resultados = []
-    for nombre, datos, tam, dif, valor in mejores[:3]:
-        resultados.append({
-            "nombre": nombre,
-            "firma_tipica": datos["firma_base"],
-            "firma_tamano": valor,
-            "tamano_roca": tam,
-            "tier": datos["tier"],
-            "nota": datos.get("nota", "")
-        })
-    return resultados
-
-
-@app.get("/minerales/por_firma/{firma}")
-async def buscar_mineral_por_firma(firma: int):
-    from math import inf
     mejores = []
     for nombre, datos in MINERAL_DATA.items():
         firmas = datos.get("firmas", [])
@@ -332,72 +262,6 @@ async def buscar_mineral_por_firma(firma: int):
     if not mejores:
         mejor = None
         mejor_dif = inf
-        mejor_tam = None
-        mejor_valor = None
-        for nombre, datos in MINERAL_DATA.items():
-            for idx, valor in enumerate(datos.get("firmas", [])):
-                dif = abs(valor - firma)
-                if dif < mejor_dif:
-                    mejor_dif = dif
-                    mejor = (nombre, datos, idx+1, dif, valor)
-        if mejor:
-            mejores.append(mejor)
-    mejores.sort(key=lambda x: x[3])
-    resultados = []
-    for nombre, datos, tam, dif, valor in mejores[:3]:
-        resultados.append({
-            "nombre": nombre,
-            "firma_tipica": datos["firma_base"],
-            "firma_tamano": valor,
-            "tamano_roca": tam,
-            "tier": datos["tier"],
-            "nota": datos.get("nota", "")
-        })
-    return resultados
-
-MINERAL_DATA = {
-    "Agricium": {"tier": 2, "firma_base": 3885, "firmas": [3885, 7770, 11655, 15440, 19245], "nota": "Componentes de precisión"},
-    "Aluminum": {"tier": 3, "firma_base": 4285, "firmas": [4285, 8570, 12855, 17140, 21425], "nota": "Piezas ligeras"},
-    "Beryl": {"tier": 3, "firma_base": 3540, "firmas": [3540, 7080, 10620, 14160, 17880], "nota": ""},
-    "Bexalite": {"tier": 1, "firma_base": 3600, "firmas": [3600, 7200, 10800, 14400, 18000], "nota": "Grupos grandes, firma muy alta"},
-    "Borase": {"tier": 2, "firma_base": 3570, "firmas": [3570, 7140, 10710, 14280, 17970], "nota": ""},
-    "Copper": {"tier": 3, "firma_base": 4240, "firmas": [4240, 8480, 12720, 16960, 21120], "nota": "Cables y electrónica básica"},
-    "Corundum": {"tier": 3, "firma_base": 4225, "firmas": [4225, 8450, 12675, 16900, 21075], "nota": ""},
-    "Gold": {"tier": 1, "firma_base": 3585, "firmas": [3585, 7170, 10755, 14340, 18135], "nota": "Múltiplo común: 3600 o 3585"},
-    "Hephaestanite": {"tier": 2, "firma_base": 4180, "firmas": [4180, 8360, 12540, 16720, 20920], "nota": "Refuerzos de casco"},
-    "Ice": {"tier": 3, "firma_base": 4300, "firmas": [4300, 8600, 12900, 17200, 21600], "nota": ""},
-    "Iron": {"tier": 3, "firma_base": 4270, "firmas": [4270, 8540, 12810, 17080, 21530], "nota": "El estándar de la galaxia"},
-    "Laranite": {"tier": 1, "firma_base": 3825, "firmas": [3825, 7650, 11475, 15300, 19350], "nota": "Muy buscado para electrónica"},
-    "Lindinium": {"tier": 2, "firma_base": 3400, "firmas": [3400, 6800, 10200, 13600, 17400], "nota": ""},
-    "Quantanium": {"tier": 1, "firma_base": 3170, "firmas": [3170, 6340, 9510, 12680, 16380], "nota": "Inestable, fluctúa"},
-    "Quartz": {"tier": 3, "firma_base": 4210, "firmas": [4210, 8420, 12630, 16840, 21730], "nota": ""},
-    "Riccite": {"tier": 2, "firma_base": 3385, "firmas": [3385, 6770, 10155, 13540, 17540], "nota": ""},
-    "Savrilium": {"tier": 2, "firma_base": 3200, "firmas": [3200, 6400, 9600, 12800, 16560], "nota": ""},
-    "Silicon": {"tier": 3, "firma_base": 4255, "firmas": [4255, 8510, 12765, 17020, 21865], "nota": ""},
-    "Stileron": {"tier": 2, "firma_base": 3185, "firmas": [3185, 6370, 9555, 12740, 16440], "nota": ""},
-    "Taranite": {"tier": 1, "firma_base": 3555, "firmas": [3555, 7110, 10665, 14220, 18390], "nota": "Múltiplo de 3: 10125"},
-    "Tin": {"tier": 3, "firma_base": 4195, "firmas": [4195, 8390, 12585, 16780, 21585], "nota": ""},
-    "Titanium": {"tier": 2, "firma_base": 3855, "firmas": [3855, 7710, 11565, 15420, 19815], "nota": "Fundamental para blindajes"},
-    "Torite": {"tier": 1, "firma_base": 3900, "firmas": [3900, 7800, 11700, 15600, 20100], "nota": ""},
-    "Tungsten": {"tier": 2, "firma_base": 3870, "firmas": [3870, 7740, 11610, 15480, 19980], "nota": ""},
-    "Debris": {"tier": "Escombro", "firma_base": 2000, "firmas": [2000, 4000, 6000, 8000, 10000], "nota": "Restos de roca sin valor"},
-}
-
-@app.get("/minerales/por_firma/{firma}")
-async def buscar_mineral_por_firma(firma: int):
-    from math import inf
-    mejores = []
-    for nombre, datos in MINERAL_DATA.items():
-        firmas = datos.get("firmas", [])
-        for idx, valor in enumerate(firmas):
-            dif = abs(valor - firma)
-            if dif <= 100:
-                mejores.append((nombre, datos, idx+1, dif, valor))
-    if not mejores:
-        mejor = None
-        mejor_dif = inf
-        mejor_tam = None
-        mejor_valor = None
         for nombre, datos in MINERAL_DATA.items():
             for idx, valor in enumerate(datos.get("firmas", [])):
                 dif = abs(valor - firma)
@@ -421,16 +285,10 @@ async def buscar_mineral_por_firma(firma: int):
 
 @app.get("/inventory/breakdown_detailed/{item_name}")
 async def get_breakdown_detailed(item_name: str, guild_id: str = Query(...)):
-    """
-    Calcula el stock actual del item desglosado por calidad y ubicación,
-    recorriendo todo el historial de movimientos.
-    """
-    # Obtener el documento del item (contiene el historial completo)
     doc = await inventory_collection.find_one({"guild_id": guild_id, "item_name": item_name})
     if not doc:
         raise HTTPException(404, "Item no encontrado")
     history = doc.get("history", [])
-    # Diccionario para acumular por (calidad, location)
     breakdown = {}
     for entry in history:
         calidad = entry.get("calidad")
@@ -440,16 +298,23 @@ async def get_breakdown_detailed(item_name: str, guild_id: str = Query(...)):
         if key not in breakdown:
             breakdown[key] = {"calidad": calidad, "location": location, "cantidad": 0}
         breakdown[key]["cantidad"] += cantidad
-    # Filtrar solo los que tienen cantidad > 0
     result = [v for v in breakdown.values() if v["cantidad"] > 0]
-    # Ordenar por calidad descendente
     result.sort(key=lambda x: x["calidad"], reverse=True)
     return result
 
-# Nuevos minerales sin datos de firma aún (solo para inventario)
-MINERAL_DATA["Aslarite"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
-MINERAL_DATA["Beradom"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
-MINERAL_DATA["Carinite"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
-MINERAL_DATA["Ouratite"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
-MINERAL_DATA["Riccite"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
-MINERAL_DATA["Sadaryx"] = {"tier": 2, "firma_base": 0, "firmas": [], "nota": "Sin datos de firma"}
+@app.get("/guild/{guild_id}")
+async def get_guild_info(guild_id: str):
+    DISCORD_TOKEN_BACKEND = os.getenv("DISCORD_TOKEN")
+    if not DISCORD_TOKEN_BACKEND:
+        raise HTTPException(500, "Token de Discord no configurado en el backend")
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        resp = await client.get(
+            f"https://discord.com/api/v10/guilds/{guild_id}",
+            headers={"Authorization": f"Bot {DISCORD_TOKEN_BACKEND}"}
+        )
+    if resp.status_code != 200:
+        raise HTTPException(404, "Servidor no encontrado o el bot no está en él")
+    data = resp.json()
+    icon_hash = data.get("icon")
+    icon_url = f"https://cdn.discordapp.com/icons/{guild_id}/{icon_hash}.png" if icon_hash else None
+    return {"name": data.get("name", "Servidor desconocido"), "icon": icon_url}
